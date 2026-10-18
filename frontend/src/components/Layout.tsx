@@ -43,6 +43,7 @@ interface NavItem {
 
 export const defaultNavItems: NavItem[] = [
   { id: 'printers', to: '/', icon: Printer, labelKey: 'nav.printers' },
+  { id: 'klipper', to: '/klipper', icon: Plug, labelKey: 'nav.klipper' },
   { id: 'inventory', to: '/inventory', icon: Disc3, labelKey: 'nav.inventory' },
   { id: 'archives', to: '/archives', icon: Archive, labelKey: 'nav.archives' },
   { id: 'queue', to: '/queue', icon: ListOrdered, labelKey: 'nav.queue' },
@@ -353,6 +354,7 @@ export function Layout() {
       files: ['library:read', 'library:read_own', 'library:read_all'],
       makerworld: 'makerworld:view',
       settings: 'settings:read',
+      klipper: 'settings:read',
       // The user-email-preferences API requires notifications:user_email, so
       // gate the nav item on the same permission (both default groups —
       // Administrators and Operators — hold it). The advanced-auth /
@@ -712,7 +714,7 @@ export function Layout() {
                             : 'text-bambu-gray-light hover:bg-bambu-dark-tertiary hover:text-white'
                         }`
                       }
-                      title={!isSidebarCompact && !sidebarExpanded ? t(labelKey) : undefined}
+                      title={!isSidebarCompact && !sidebarExpanded ? (id === 'klipper' ? 'Klipper' : t(labelKey)) : undefined}
                     >
                       <div className="relative">
                         <Icon className="w-5 h-5 flex-shrink-0" />
@@ -727,7 +729,7 @@ export function Layout() {
                           </span>
                         )}
                       </div>
-                      {(isSidebarCompact || sidebarExpanded) && <span>{t(labelKey)}</span>}
+                      {(isSidebarCompact || sidebarExpanded) && <span>{id === 'klipper' ? 'Klipper' : t(labelKey)}</span>}
                     </NavLink>
                   </li>
                 );
