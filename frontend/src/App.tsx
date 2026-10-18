@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/Layout';
 import { PrintersPage } from './pages/PrintersPage';
+import { KlipperPanel } from './components/KlipperPanel';
 import { ArchivesPage } from './pages/ArchivesPage';
 import { QueuePage } from './pages/QueuePage';
 import { StatsPage } from './pages/StatsPage';
@@ -208,7 +209,8 @@ function App() {
 
                 {/* Main app with WebSocket for real-time updates */}
                 <Route element={<ProtectedRoute><WebSocketProvider><Layout /></WebSocketProvider></ProtectedRoute>}>
-                  <Route index element={<PrintersPage />} />
+                  <Route index element={<><PrintersPage /><div className="px-4 md:px-8 pb-8"><KlipperPanel compact /></div></>} />
+                  <Route path="klipper" element={<PermissionRoute permission="settings:read"><div className="p-4 md:p-8"><KlipperPanel /></div></PermissionRoute>} />
                   <Route path="archives" element={<ArchivesPage />} />
                   <Route path="queue" element={<QueuePage />} />
                   {/* Slicer Pipelines (#1425) — Pipelines tab lives on the
