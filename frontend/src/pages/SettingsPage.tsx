@@ -65,7 +65,7 @@ import { registerSettingsSearch, getSettingsSearchEntries } from '../lib/setting
 import type { UsersSubTab } from '../lib/settingsSearch';
 import { availableEngines, hasEngineChoice, resolveEngine, type SliceEngineId } from '../lib/sliceEngines';
 import { NumberInput } from '../components/NumberInput';
-import { KlipperManager } from './KlipperManager';
+import { KlipperPanel } from '../components/KlipperPanel';
 
 const validTabs = ['general', 'plugs', 'sensors', 'notifications', 'queue', 'filament', 'network', 'apikeys', 'virtual-printer', 'spoolbuddy', 'failure-detection', 'klipper', 'users', 'backup'] as const;
 type TabType = typeof validTabs[number];
@@ -4971,7 +4971,7 @@ export function SettingsPage() {
 
       {/* SpoolBuddy Tab */}
       {activeTab === 'klipper' && (
-        <section id="card-klipper"><KlipperManager embedded /></section>
+        <section id="card-klipper"><KlipperPanel /></section>
       )}
       {activeTab === 'spoolbuddy' && (
         <div id="card-spoolbuddy">
