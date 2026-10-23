@@ -1,16 +1,12 @@
 <!-- AI_SLOP_NOTICE_START -->
-<p align="center">
-  <img src="https://img.shields.io/badge/AI%20SLOP-YES%2C%20ON%20PURPOSE-ff0066?style=for-the-badge" alt="AI SLOP: YES, ON PURPOSE">
-</p>
+<p align="center"><img src="https://img.shields.io/badge/AI%20SLOP-YES%2C%20ON%20PURPOSE-ff0066?style=for-the-badge" alt="AI SLOP: YES, ON PURPOSE"></p>
 
-<h1 align="center">AI SLOP EDITION</h1>
+# AI SLOP EDITION
 
 > [!CAUTION]
-> **THIS FORK CONTAINS AI SLOP.** The experimental **OctoPrint, Klipper/Moonraker, camera wall and printer-card UI additions** are AI-assisted and should be treated as unreviewed, work-in-progress code. Check the changes before relying on them to control real hardware. **Never commit printer API keys or private settings.**
->
-> This label applies to the **custom fork additions**, not the original [Bambuddy project](https://github.com/maziggy/bambuddy). See [AI_SLOP.md](AI_SLOP.md) for the full disclosure. Experimental additions may be on feature branches until published or merged.
+> **THIS FORK CONTAINS AI SLOP.** Its custom OctoPrint, Klipper, camera wall, and unified printer-card additions are AI-assisted experimental work. Review code before using it to control hardware. Never commit printer API keys or passwords. This notice applies to fork additions, not upstream [Bambuddy](https://github.com/maziggy/bambuddy).
 
----
+Read [AI_SLOP.md](AI_SLOP.md) for details.
 
 <!-- AI_SLOP_NOTICE_END -->
 
@@ -915,10 +911,3 @@ Sponsors get listed in [BACKERS.md](BACKERS.md). Need commercial support (SLA, m
   <a href="https://github.com/maziggy/bambuddy/issues">Request Feature</a> •
   <a href="http://wiki.bambuddy.cool">Documentation</a>
 </p>
-
-
----
-
-### AI SLOP disclosure (fork additions)
-
-**AI SLOP — YES, ON PURPOSE.** The custom printer integration code in this fork is AI-assisted experimental work. See [AI_SLOP.md](AI_SLOP.md). This statement does not characterize upstream Bambuddy.

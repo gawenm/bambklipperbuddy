@@ -21,7 +21,9 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
+import { octoFleetFetch, type OctoFleetConfig, type OctoFleetStatus } from '../api/octoprintFleet';
+import { klipperFleetFetch, type KlipperFleetConfig, type KlipperFleetStatus } from '../api/klipperFleet';
 import { useTranslation } from 'react-i18next';
 import { CameraWall, type CameraWallStatus } from '../components/CameraWall';
 import { type CameraTileStatusMode } from '../components/CameraTile';
@@ -121,6 +123,41 @@ export function CamWallPage() {
     refetchInterval: KIOSK_POLL_MS,
   });
 
+  // Non-kiosk Cam Wall shows every configured OctoPrint and Klipper camera.
+  const providersEnabled = !kiosk && !authLoading && (!authEnabled || user !== null);
+  const octoRegistry = useQuery({
+    queryKey: ['octofleet-printers'],
+    queryFn: () => octoFleetFetch<OctoFleetConfig[]>('/printers'),
+    enabled: providersEnabled,
+    refetchInterval: KIOSK_POLL_MS,
+  });
+  const klipperRegistry = useQuery({
+    queryKey: ['klipperfleet-printers'],
+    queryFn: () => klipperFleetFetch<KlipperFleetConfig[]>('/printers'),
+    enabled: providersEnabled,
+    refetchInterval: KIOSK_POLL_MS,
+  });
+  const octoStatuses = useQueries({
+    queries: (octoRegistry.data ?? []).map(p => ({
+      queryKey: ['octofleet-status', p.id],
+      queryFn: () => octoFleetFetch<OctoFleetStatus>(`/printers/${p.id}/status`),
+      enabled: providersEnabled,
+      refetchInterval: 10000,
+      staleTime: 3000,
+    })),
+  });
+  const klipperStatuses = useQueries({
+    queries: (klipperRegistry.data ?? []).map(p => ({
+      queryKey: ['klipperfleet-status', p.id],
+      queryFn: () => klipperFleetFetch<KlipperFleetStatus>(`/printers/${p.id}/status`),
+      enabled: providersEnabled,
+      refetchInterval: 10000,
+      staleTime: 3000,
+    })),
+  });
+  const octoPrinters = octoStatuses.flatMap(q => q.data ? [q.data] : []);
+  const klipperPrinters = klipperStatuses.flatMap(q => q.data ? [q.data] : []);
+
   const kioskStatuses = useMemo(() => {
     const map = new Map<number, CameraWallStatus | undefined>();
     for (const p of kioskQuery.data ?? []) {
@@ -167,6 +204,8 @@ export function CamWallPage() {
     <div className="min-h-screen bg-bambu-dark p-4">
       <CameraWall
         printers={printers}
+        octoprint={kiosk ? [] : octoPrinters}
+        klipper={kiosk ? [] : klipperPrinters}
         maxLive={maxLive}
         snapshotIntervalSec={snapshotIntervalSec}
         statusMode={statusMode}

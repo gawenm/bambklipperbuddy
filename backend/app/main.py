@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import delete, or_, select, text
 
+from backend.app.api.routes import octoprint_fleet, klipper_fleet
 from backend.app.api.routes import (
     ams_history,
     announcements,
@@ -10213,6 +10214,8 @@ PUBLIC_API_PATTERNS = [
     "/icon",  # /external-links/{id}/icon
     # Camera (streams loaded via <img> tag)
     "/camera/stream",  # /printers/{id}/camera/stream
+    "/octoprint-fleet/camera-stream/",  # Fleet streams have token auth
+    "/klipper-fleet/camera-stream/",
     "/camera/snapshot",  # /printers/{id}/camera/snapshot
     # Streaming-overlay status feed (#2613): OBS loads /overlay/{id} with no login
     # and this backs it, authenticated by an ``overlay``-scoped token in the query
@@ -10628,6 +10631,8 @@ app.include_router(bug_report.router, prefix=app_settings.api_prefix)
 app.include_router(users.router, prefix=app_settings.api_prefix)
 app.include_router(groups.router, prefix=app_settings.api_prefix)
 app.include_router(printers.router, prefix=app_settings.api_prefix)
+app.include_router(octoprint_fleet.router, prefix=app_settings.api_prefix)
+app.include_router(klipper_fleet.router, prefix=app_settings.api_prefix)
 app.include_router(archives.router, prefix=app_settings.api_prefix)
 app.include_router(filaments.router, prefix=app_settings.api_prefix)
 app.include_router(finance.router, prefix=app_settings.api_prefix)
