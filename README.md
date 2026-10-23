@@ -1,3 +1,15 @@
+<!-- AI_SLOP_NOTICE_START -->
+<p align="center"><img src="https://img.shields.io/badge/AI%20SLOP-YES%2C%20ON%20PURPOSE-ff0066?style=for-the-badge" alt="AI SLOP: YES, ON PURPOSE"></p>
+
+# AI SLOP EDITION
+
+> [!CAUTION]
+> **THIS FORK CONTAINS AI SLOP.** Its custom OctoPrint, Klipper, camera wall, and unified printer-card additions are AI-assisted experimental work. Review code before using it to control hardware. Never commit printer API keys or passwords. This notice applies to fork additions, not upstream [Bambuddy](https://github.com/maziggy/bambuddy).
+
+Read [AI_SLOP.md](AI_SLOP.md) for details.
+
+<!-- AI_SLOP_NOTICE_END -->
+
 <p align="center">
   <img src="static/img/bambuddy_logo_dark.png" alt="Bambuddy Logo" width="300">
 </p>

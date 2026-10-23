@@ -65,8 +65,9 @@ import { registerSettingsSearch, getSettingsSearchEntries } from '../lib/setting
 import type { UsersSubTab } from '../lib/settingsSearch';
 import { availableEngines, hasEngineChoice, resolveEngine, type SliceEngineId } from '../lib/sliceEngines';
 import { NumberInput } from '../components/NumberInput';
+import { KlipperManager } from './KlipperManager';
 
-const validTabs = ['general', 'plugs', 'sensors', 'notifications', 'queue', 'filament', 'network', 'apikeys', 'virtual-printer', 'spoolbuddy', 'failure-detection', 'users', 'backup'] as const;
+const validTabs = ['general', 'plugs', 'sensors', 'notifications', 'queue', 'filament', 'network', 'apikeys', 'virtual-printer', 'spoolbuddy', 'failure-detection', 'klipper', 'users', 'backup'] as const;
 type TabType = typeof validTabs[number];
 
 // Cross-tab search registrations for cards rendered inline in this file.
@@ -115,6 +116,7 @@ registerSettingsSearch({ labelKey: 'settings.sessionPolicy.title', labelFallback
 registerSettingsSearch({ labelKey: 'settings.email.smtpSettings', labelFallback: 'SMTP Configuration', tab: 'users', subTab: 'email', keywords: 'smtp email send server port password auth starttls ssl', anchor: 'card-smtp' });
 registerSettingsSearch({ labelKey: 'settings.ldap.title', labelFallback: 'LDAP Authentication', tab: 'users', subTab: 'ldap', keywords: 'ldap active directory ad authentication bind dn search base group mapping', anchor: 'card-ldap' });
 registerSettingsSearch({ labelKey: 'settings.tabs.backup', tab: 'backup', keywords: 'backup github restore download cloud sync profiles archives', anchor: 'card-backup' });
+registerSettingsSearch({ labelKey: 'settings.tabs.klipper', labelFallback: 'Klipper', tab: 'klipper', keywords: 'klipper moonraker printer add configure camera stream connection', anchor: 'card-klipper' });
 // Sidebar (system pages and external links settings is rendered in the General tab)
 registerSettingsSearch({ labelKey: 'externalLinks.sidebarLayout', labelFallback: 'Sidebar', tab: 'general', keywords: 'sidebar layout links pages hide show external custom navigation url add', anchor: 'card-sidebar-links' });
 // Filament tab — integrations
@@ -1716,6 +1718,13 @@ export function SettingsPage() {
           <Printer className="w-4 h-4 shrink-0" />
           {t('settings.tabs.virtualPrinter')}
           <span className={`w-2 h-2 rounded-full shrink-0 ${virtualPrinterRunning ? 'bg-green-400' : 'bg-gray-500'}`} />
+        </button>
+        <button
+          onClick={() => handleTabChange('klipper')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px lg:border-b-0 lg:border-l-2 lg:-ml-px lg:mb-0 lg:justify-start flex items-center gap-2 ${activeTab === 'klipper' ? 'text-bambu-green border-bambu-green' : 'text-bambu-gray hover:text-gray-900 dark:hover:text-white border-transparent'}`}
+        >
+          <Plug className="w-4 h-4 shrink-0" />
+          Klipper
         </button>
         <button
           onClick={() => handleTabChange('spoolbuddy')}
@@ -4961,6 +4970,9 @@ export function SettingsPage() {
       )}
 
       {/* SpoolBuddy Tab */}
+      {activeTab === 'klipper' && (
+        <section id="card-klipper"><KlipperManager embedded /></section>
+      )}
       {activeTab === 'spoolbuddy' && (
         <div id="card-spoolbuddy">
           <SpoolBuddySettings />

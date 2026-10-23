@@ -5,6 +5,10 @@ import { Settings as SettingsIcon } from 'lucide-react';
 import { CameraTile, type CameraTileMode, type CameraTileStatusMode } from './CameraTile';
 import { filterKnownHMSErrors } from './HMSErrorModal';
 import { api, type PrinterStatus } from '../api/client';
+import { type OctoFleetStatus } from '../api/octoprintFleet';
+import { OctoPrintCameraWallTile } from './OctoPrintCameraWallTile';
+import type { KlipperFleetStatus } from '../api/klipperFleet';
+import { KlipperCameraWallTile } from './KlipperCameraWallTile';
 
 // The wall only ever reads these three fields off a printer, so it asks for no
 // more than that. Printer[] satisfies this structurally, and so does the
@@ -33,6 +37,9 @@ export interface CameraWallStatus {
 
 interface CameraWallProps {
   printers: CameraWallPrinter[];
+  cardSize?: number;
+  octoprint?: OctoFleetStatus[];
+  klipper?: KlipperFleetStatus[];
   maxLive: number;
   snapshotIntervalSec: number;
   statusMode: CameraTileStatusMode;
@@ -56,9 +63,14 @@ const MAX_MAX_LIVE = 16;
 const MIN_SNAPSHOT_SEC = 2;
 const MAX_SNAPSHOT_SEC = 60;
 const STATUS_MODES: CameraTileStatusMode[] = ['off', 'compact', 'full'];
+const octoDomId = (id: string) => `octo-${id}`;
+const klipperDomId = (id: string) => `klipper-${id}`;
 
 export function CameraWall({
   printers,
+  cardSize = 2,
+  octoprint,
+  klipper,
   maxLive,
   snapshotIntervalSec,
   statusMode,
@@ -70,7 +82,7 @@ export function CameraWall({
   showSettings: settingsEnabled = true,
 }: CameraWallProps) {
   const { t } = useTranslation();
-  const tileRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
+  const tileRefs = useRef<Map<string | number, HTMLDivElement | null>>(new Map());
 
   // Reuses the same ['printerStatus', id] cache that each PrinterCard
   // populates, so flipping between Cards and Cam Wall is instant. Skipped
@@ -93,7 +105,7 @@ export function CameraWall({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [printers, statusQueries, statuses]);
   const statusByPrinter = statuses ?? fetchedStatuses;
-  const [visibleIds, setVisibleIds] = useState<Set<number>>(() => new Set());
+  const [visibleIds, setVisibleIds] = useState<Set<string | number>>(() => new Set());
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement | null>(null);
 
@@ -117,8 +129,9 @@ export function CameraWall({
         setVisibleIds((prev) => {
           const next = new Set(prev);
           for (const entry of entries) {
-            const id = Number((entry.target as HTMLElement).dataset.printerId);
-            if (!Number.isFinite(id)) continue;
+            const key = (entry.target as HTMLElement).dataset.printerId ?? '';
+            const id: string | number = (key.startsWith('octo-') || key.startsWith('klipper-')) ? key : Number(key);
+            if (typeof id === 'number' && !Number.isFinite(id)) continue;
             if (entry.isIntersecting) next.add(id);
             else next.delete(id);
           }
@@ -132,7 +145,7 @@ export function CameraWall({
       if (el) observer.observe(el);
     }
     return () => observer.disconnect();
-  }, [printers]);
+  }, [printers, octoprint, klipper]);
 
   // Live slot allocation: visible tiles get live up to `maxLive`, in printer
   // list order so the assignment is stable. Visible-but-over-cap fall back to
@@ -158,7 +171,25 @@ export function CameraWall({
     return map;
   }, [printers, visibleIds, maxLive, statusByPrinter]);
 
-  if (printers.length === 0) {
+  const octoCameras = (octoprint ?? []).filter(p => Boolean(p.camera?.camera_url || p.camera?.snapshot_url));
+  const liveUsed = Array.from(modeByPrinter.values()).filter(m => m === 'live').length;
+  const octoModes = new Map<string, CameraTileMode>();
+  let cameraSlots = Math.max(0, maxLive - liveUsed);
+  for (const printer of octoCameras) {
+    const visible = visibleIds.has(octoDomId(printer.id));
+    const mode: CameraTileMode = visible && cameraSlots > 0 ? 'live' : 'paused';
+    octoModes.set(printer.id, mode);
+    if (mode === 'live') cameraSlots -= 1;
+  }
+  const klipperCameras = (klipper ?? []).filter(p => Boolean(p.camera?.camera_url || p.camera?.snapshot_url));
+  const klipperModes = new Map<string, CameraTileMode>();
+  for (const printer of klipperCameras) {
+    const visible = visibleIds.has(klipperDomId(printer.id));
+    const mode: CameraTileMode = visible && cameraSlots > 0 ? 'live' : 'paused';
+    klipperModes.set(printer.id, mode);
+    if (mode === 'live') cameraSlots -= 1;
+  }
+  if (printers.length === 0 && octoCameras.length === 0 && klipperCameras.length === 0) {
     return (
       <div className="rounded-lg border border-bambu-dark-tertiary bg-bambu-dark p-6 text-center text-bambu-gray">
         {t('printers.camWall.noPrinters')}
@@ -171,9 +202,9 @@ export function CameraWall({
       <div className="flex items-center justify-between text-xs text-bambu-gray">
         <span>
           {t('printers.camWall.summary', {
-            live: Array.from(modeByPrinter.values()).filter((m) => m === 'live').length,
+            live: Array.from(modeByPrinter.values()).filter((m) => m === 'live').length + Array.from(octoModes.values()).filter(m => m === 'live').length + Array.from(klipperModes.values()).filter(m => m === 'live').length,
             snap: Array.from(modeByPrinter.values()).filter((m) => m === 'snapshot').length,
-            total: printers.length,
+            total: printers.length + octoCameras.length + klipperCameras.length,
           })}
         </span>
         {/* Not merely hidden — a kiosk wall must not carry a focusable control
@@ -271,7 +302,12 @@ export function CameraWall({
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className={`grid gap-3 ${
+        cardSize === 1 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' :
+        cardSize === 2 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' :
+        cardSize === 3 ? 'grid-cols-1 lg:grid-cols-2' :
+        'grid-cols-1'
+      }`}>
         {printers.map((p) => {
           const mode = modeByPrinter.get(p.id) ?? 'paused';
           return (
@@ -308,6 +344,28 @@ export function CameraWall({
             </div>
           );
         })}
+        {octoCameras.map(octo => <div key={octo.id}
+          data-printer-id={octoDomId(octo.id)}
+          ref={(el) => { tileRefs.current.set(octoDomId(octo.id), el); }}
+        >
+          <OctoPrintCameraWallTile
+            status={octo}
+            mode={octoModes.get(octo.id) ?? 'paused'}
+            statusMode={statusMode}
+            snapshotIntervalMs={snapshotIntervalSec * 1000}
+          />
+        </div>)}
+        {klipperCameras.map(p => <div key={`klipper-${p.id}`}
+          data-printer-id={klipperDomId(p.id)}
+          ref={(el) => { tileRefs.current.set(klipperDomId(p.id), el); }}
+        >
+          <KlipperCameraWallTile
+            status={p}
+            mode={klipperModes.get(p.id) ?? 'paused'}
+            statusMode={statusMode}
+            snapshotIntervalMs={snapshotIntervalSec * 1000}
+          />
+        </div>)}
       </div>
     </div>
   );

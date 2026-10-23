@@ -84,7 +84,7 @@ function dryingBlockedKey(reasons: Array<number | string> | undefined): string {
   if (codes.includes(3)) return 'printers.drying.retractFilament';
   return 'printers.drying.cannotDryNow';
 }
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -172,6 +172,10 @@ import { BulkPrinterToolbar, type PrinterState } from '../components/BulkPrinter
 import { FileManagerModal } from '../components/FileManagerModal';
 import { EmbeddedCameraViewer } from '../components/EmbeddedCameraViewer';
 import { CameraWall } from '../components/CameraWall';
+import { OctoPrintPrinterCard, octoStateGroup } from '../components/OctoPrintPrinterCard';
+import { octoFleetFetch, type OctoFleetConfig, type OctoFleetStatus } from '../api/octoprintFleet';
+import { klipperFleetFetch, type KlipperFleetConfig, type KlipperFleetStatus } from '../api/klipperFleet';
+import { KlipperPrinterCard, klipperStateGroup } from '../components/KlipperPrinterCard';
 import { ContextMenu, type ContextMenuItem } from '../components/ContextMenu';
 import { MQTTDebugModal } from '../components/MQTTDebugModal';
 import { HMSErrorModal, filterKnownHMSErrors, isSevereHMSError } from '../components/HMSErrorModal';
@@ -1602,8 +1606,7 @@ function NozzleTemperatureControlBox({
             onClick={() => onSubmit(option.value)}
             className="h-7 rounded-md border border-bambu-dark-tertiary bg-bambu-dark-secondary px-1.5 text-[11px] font-medium text-white transition-colors hover:bg-bambu-dark-tertiary disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {option.label}
-          </button>
+            {option.label}          </button>
         ))}
       </div>
       <form
@@ -4603,8 +4606,7 @@ function PrinterCard({
 
               return (
                 <>
-                  <div className="mt-2 flex items-stretch gap-1.5 flex-wrap">
-                    {/* Nozzle temp - combined for dual nozzle */}
+                  <div className="mt-2 flex items-stretch gap-1.5 flex-wrap">                    {/* Nozzle temp - combined for dual nozzle */}
                     <div
                       className={statusControlClass}
                       title={statusControlTitle}
@@ -8871,7 +8873,52 @@ export function PrintersPage() {
   });
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const { hasPermission } = useAuth();
+  const { hasPermission, authEnabled } = useAuth();
+  // OctoPrint registry is initially empty; do not auto-import the former CR-30.
+  const octoRegistry = useQuery({
+    queryKey: ['octofleet-printers'],
+    queryFn: () => octoFleetFetch<OctoFleetConfig[]>('/printers'),
+    enabled: !authEnabled || hasPermission('printers:read'),
+    staleTime: 5000,
+    refetchInterval: 30000,
+  });
+  const octoStatuses = useQueries({
+    queries: (octoRegistry.data ?? []).map(printer => ({
+      queryKey: ['octofleet-status', printer.id],
+      queryFn: () => octoFleetFetch<OctoFleetStatus>(`/printers/${printer.id}/status`),
+      refetchInterval: 10000,
+      staleTime: 3000,
+    })),
+  });
+  const octoPrinters = octoStatuses.flatMap(q => q.data ? [q.data] : []);
+  const octoVisible = octoPrinters.filter(p =>
+    (!hideDisconnected || p.connected) &&
+    locationFilter === 'all' &&
+    (!search.trim() || `${p.name} OctoPrint`.toLowerCase().includes(search.trim().toLowerCase())) &&
+    (statusFilter === 'all' || statusFilter === octoStateGroup(p))
+  );
+  const klipperRegistry = useQuery({
+    queryKey: ['klipperfleet-printers'],
+    queryFn: () => klipperFleetFetch<KlipperFleetConfig[]>('/printers'),
+    enabled: !authEnabled || hasPermission('printers:read'),
+    staleTime: 5000,
+    refetchInterval: 30000,
+  });
+  const klipperStatuses = useQueries({
+    queries: (klipperRegistry.data ?? []).map(printer => ({
+      queryKey: ['klipperfleet-status', printer.id],
+      queryFn: () => klipperFleetFetch<KlipperFleetStatus>(`/printers/${printer.id}/status`),
+      refetchInterval: 10000,
+      staleTime: 3000,
+    })),
+  });
+  const klipperPrinters = klipperStatuses.flatMap(q => q.data ? [q.data] : []);
+  const klipperVisible = klipperPrinters.filter(p =>
+    (!hideDisconnected || p.connected) &&
+    locationFilter === 'all' &&
+    (!search.trim() || `${p.name} Klipper`.toLowerCase().includes(search.trim().toLowerCase())) &&
+    (statusFilter === 'all' || statusFilter === klipperStateGroup(p))
+  );
   // Which way the camera buttons open a stream. Chosen per click from the
   // button's own menu; null until this browser has made a choice, so the
   // stored setting below can act as the default a fresh browser starts from.
@@ -9660,7 +9707,7 @@ export function PrintersPage() {
       )}
 
       {/* Card size selector */}
-      <div className={`flex h-8 items-center bg-bambu-dark rounded-lg border border-bambu-dark-tertiary ${pageView === 'camwall' ? 'opacity-40 pointer-events-none' : ''} ${inMenu ? 'w-full' : ''}`}>
+      <div className={`flex h-8 items-center bg-bambu-dark rounded-lg border border-bambu-dark-tertiary  ${inMenu ? 'w-full' : ''}`}>
         {cardSizeLabels.map((label, index) => {
           const size = index + 1;
           const isSelected = cardSize === size;
@@ -9761,6 +9808,8 @@ export function PrintersPage() {
           )}
         </div>
       )}
+      <RouterLink to="/octoprint" className="inline-flex h-8 items-center gap-2 rounded-lg bg-bambu-dark-tertiary px-3 text-sm text-white hover:bg-bambu-green/20" title="Open OctoPrint printer setup" aria-label="Open OctoPrint printer setup"><Plus className="w-4 h-4" />Add Octo</RouterLink>
+      <RouterLink to="/settings?tab=klipper" className="inline-flex h-8 items-center gap-2 rounded-lg bg-bambu-dark-tertiary px-3 text-sm text-white hover:bg-bambu-green/20" title="Open Klipper printer setup" aria-label="Open Klipper printer setup"><Plus className="w-4 h-4" />Add Klipper</RouterLink>
       <Button
         onClick={() => setShowAddModal(true)}
         disabled={!hasPermission('printers:create')}
@@ -9768,7 +9817,7 @@ export function PrintersPage() {
         className={`!h-8 !min-h-8 px-2 py-0 ${inMenu ? 'w-full' : ''}`}
       >
         <Plus className="w-4 h-4" />
-        {t('printers.addPrinter')}
+        Add Bambu
       </Button>
     </>
   );
@@ -9782,10 +9831,11 @@ export function PrintersPage() {
             {t('printers.title')}
           </h1>
           <StatusSummaryBar printers={printers} />
+          <p className="mt-1 text-xs text-bambu-gray">{octoPrinters.length} OctoPrint · {klipperPrinters.length} Klipper</p>
         </div>
         <div ref={toolbarRef} className="relative flex items-center gap-2">
           {/* Only show search bar when printers exist */}
-          {printers && printers.length > 0 && (
+          {((printers && printers.length > 0) || octoPrinters.length > 0 || klipperPrinters.length > 0) && (
             <div className="relative min-w-0 flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bambu-gray/50" />
               <input
@@ -9844,7 +9894,7 @@ export function PrintersPage() {
 
       {isLoading ? (
         <div className="text-center py-12 text-bambu-gray">{t('common.loading')}</div>
-      ) : printers?.length === 0 ? (
+      ) : printers?.length === 0 && octoPrinters.length === 0 && klipperPrinters.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
             <p className="text-bambu-gray mb-4">{t('printers.noPrintersConfigured')}</p>
@@ -9858,7 +9908,7 @@ export function PrintersPage() {
             </Button>
           </CardContent>
         </Card>
-      ) : sortedPrinters.length === 0 && (search.trim() || statusFilter !== 'all' || locationFilter !== 'all') ? (
+      ) : sortedPrinters.length === 0 && octoVisible.length === 0 && klipperVisible.length === 0 && (search.trim() || statusFilter !== 'all' || locationFilter !== 'all') ? (
         <Card>
           <CardContent className="text-center py-12">
             <p className="text-bambu-gray">{t('printers.noSearchResults')}</p>
@@ -9867,6 +9917,9 @@ export function PrintersPage() {
       ) : pageView === 'camwall' ? (
         <CameraWall
           printers={sortedPrinters}
+          cardSize={cardSize}
+          octoprint={(!authEnabled || hasPermission('camera:view')) ? octoVisible : []}
+          klipper={(!authEnabled || hasPermission('camera:view')) ? klipperVisible : []}
           maxLive={camWallMaxLive}
           snapshotIntervalSec={camWallSnapshotSec}
           onTileClick={(id, name) => {
@@ -9896,15 +9949,27 @@ export function PrintersPage() {
         /* Grouped view (location, status, or model) */
         <div className="space-y-6">
           {(() => {
+            const octoGroups: Record<string, OctoFleetStatus[]> = {};
+            const klipperGroups: Record<string, KlipperFleetStatus[]> = {};
+            klipperVisible.forEach(p => {
+              const group = sortBy === 'status' ? klipperStateGroup(p) : sortBy === 'model' ? 'Klipper' : 'Ungrouped';
+              (klipperGroups[group] ||= []).push(p);
+            });
+            octoVisible.forEach(p => {
+              const group = sortBy === 'status' ? octoStateGroup(p) : sortBy === 'model' ? 'OctoPrint' : 'Ungrouped';
+              (octoGroups[group] ||= []).push(p);
+            });
             const keys = sortBy === 'status'
-              ? STATUS_GROUP_ORDER.filter(k => groupedPrinters[k]?.length > 0)
-              : Object.keys(groupedPrinters);
+              ? STATUS_GROUP_ORDER.filter(k => groupedPrinters[k]?.length > 0 || octoGroups[k]?.length || klipperGroups[k]?.length)
+              : [...new Set([...Object.keys(groupedPrinters), ...Object.keys(octoGroups), ...Object.keys(klipperGroups)])];
             // For status grouping, asc/desc flips the fixed priority order
             // (asc = error→offline, desc = offline→error). This matches the
             // sort-toggle behaviour for other groupings.
             return (sortAsc ? keys : [...keys].reverse());
           })().map((groupKey) => {
-            const groupPrinters = groupedPrinters[groupKey];
+            const groupPrinters = groupedPrinters[groupKey] ?? [];
+            const groupOctos = octoGroups[groupKey] ?? [];
+            const groupKlippers = klipperGroups[groupKey] ?? [];
             const collapseKey = `${sortBy}:${groupKey}`;
             const isOpen = !collapsedSections[collapseKey];
 
@@ -9925,7 +9990,7 @@ export function PrintersPage() {
                   <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${dot}`} />
                     {label}
-                    <span className="text-sm font-normal text-bambu-gray">({groupPrinters.length})</span>
+                    <span className="text-sm font-normal text-bambu-gray">({groupPrinters.length + groupOctos.length + groupKlippers.length})</span>
                     {selectionMode && (
                       <button
                         onClick={(e) => {
@@ -9943,6 +10008,8 @@ export function PrintersPage() {
                 }
               >
                 <div className={`grid gap-4 ${cardSize >= 3 ? 'gap-6' : ''} ${getGridClasses()}`}>
+                  {groupOctos.map(octo => <OctoPrintPrinterCard key={octo.id} status={octo} cardSize={cardSize} />)}
+                  {groupKlippers.map(klipper => <KlipperPrinterCard key={klipper.id} status={klipper} cardSize={cardSize} />)}
                   {groupPrinters.map((printer) => (
                     <PrinterCard
                       key={printer.id}
@@ -9996,6 +10063,8 @@ export function PrintersPage() {
       ) : (
         /* Regular grid view */
         <div className={`grid gap-4 ${cardSize >= 3 ? 'gap-6' : ''} ${getGridClasses()}`}>
+          {sortAsc && octoVisible.map(octo => <OctoPrintPrinterCard key={octo.id} status={octo} cardSize={cardSize} />)}
+          {sortAsc && klipperVisible.map(klipper => <KlipperPrinterCard key={klipper.id} status={klipper} cardSize={cardSize} />)}
           {sortedPrinters.map((printer) => (
             <PrinterCard
               key={printer.id}
@@ -10041,6 +10110,8 @@ export function PrintersPage() {
               aiLastError={obicoPrinterStatus?.last_error ?? null}
             />
           ))}
+          {!sortAsc && octoVisible.map(octo => <OctoPrintPrinterCard key={octo.id} status={octo} cardSize={cardSize} />)}
+          {!sortAsc && klipperVisible.map(klipper => <KlipperPrinterCard key={klipper.id} status={klipper} cardSize={cardSize} />)}
         </div>
       )}
 
